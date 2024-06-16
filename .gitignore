@@ -1,0 +1,21 @@
+# python cache
+*.pyc
+__pycache__/
+.ipynb_checkpoints/
+.jupyter/
+
+# build files
+cmake-build-debug/
+CMakeLists.txt
+
+# virtual environment
+venv/
+
+# JetBrains IDE
+.idea/
+.virtual_documents/
+
+# MacOS trash
+.DS_Store
+
+*/catboost_info
