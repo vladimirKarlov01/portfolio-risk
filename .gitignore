@@ -18,4 +18,7 @@ venv/
 # MacOS trash
 .DS_Store
 
+# tmp files
+~$*
+
 */catboost_info
