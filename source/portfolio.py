@@ -2,10 +2,11 @@
 Portfolio class
 """
 
+import numpy as np
 import pandas as pd
 
 from data import DATA_PATH
-from source.risk_factors import RiskFactors
+from source.risk_factors import RiskFactors, PricesDict
 
 
 class Portfolio:
@@ -71,6 +72,12 @@ class Portfolio:
             .sort_index()
         )
 
+    def move_forward(self, n_days: int = 1):
+        """
+        Move current date to n_days forward
+        """
+        self._current_date += pd.Timedelta(days=n_days)
+
     def get_last_price(self, ticker: str) -> float:
         """
         Retrieve last available prices for current date
@@ -104,7 +111,25 @@ class Portfolio:
                     return True
         return False
 
-    def calc_fair_value(self) -> float:
+    def calc_fair_value(self, fair_prices: PricesDict) -> float:
         """
-        Calculate fair value of portfolio based on predicted risk factors
+        Calculate fair value of portfolio based on predicted prices
         """
+        return sum(
+            fair_prices[ticker] * quantity
+            for instr_type, instruments in self.all_instruments.items()
+            for ticker, quantity in instruments.items()
+        )
+
+    def simulate_fair_value_dist(self, n_days: int = 1, n_sim: int = 1000) -> np.array:
+        """
+        Simulate fair value of portfolio
+        """
+        prices_simulations = self.risk_factors.predict_prices(n_days, n_sim)
+        dist = np.array(
+            [
+                self.calc_fair_value(prices_obs)
+                for prices_obs in prices_simulations
+            ]
+        )
+        return dist
