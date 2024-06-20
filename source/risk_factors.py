@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 
 from data import DATA_PATH
+from source.utils import OPT_PARAMS
 
 PricesDict = dict[str, float]
 
@@ -20,19 +21,6 @@ class RiskFactors:
     - simulations for the period
     - instruments price predictions
     """
-
-    key_rate_params = {  # optimized in notebooks/rates_simulations.ipynb
-        'a': 0.01,
-        'b': 7.85,
-        'sigma': 0.11,
-    }
-
-    # todo: remove crutch
-    risk_free_params = {  # optimized in notebooks/rates_simulations.ipynb
-        'a': 0.01,
-        'b': 7.85,
-        'sigma': 0.11,
-    }
 
     def __init__(self, current_date: pd.Timestamp):
         self._current_date = current_date
@@ -89,38 +77,28 @@ class RiskFactors:
             result = np.hstack([result, r_t_i])
         return result
 
-    def simulate_rates(self, n_days: int = 1, n_sim: int = 1_000) -> tuple[np.array, np.array]:
+    def simulate_rates(self, risk_factor: str, n_days: int = 1, n_sim: int = 1_000) -> np.array:
         """
         Rates simulation for n_days forward
         """
-        self.key_rate_params.update({'r_0': self.data.loc[self._current_date_str, 'cbr_key_rate']})
-        self.risk_free_params.update(  # todo: remove crutch
-            {'r_0': self.data.loc[self._current_date_str, 'cbr_key_rate']}
-        )
-
-        # COV_MATRIX = np.cov(self.data['cbr_key_rate'], self.data['risk_free_rate'])
-        COV_MATRIX = np.array([  # todo: remove crutch
-            [10.0, -2.00],
-            [-2.00, 20.00],
-        ])
-
-        L = np.linalg.cholesky(COV_MATRIX)
-        W_t = np.random.randn(n_sim, 2, n_days)
-        W_t_corr = L @ W_t
-
-        key_rate_sim = self._cir_sim(n_sim=n_sim, n_days=n_days, deltas_W=W_t_corr[:, 0], **self.key_rate_params)
-        risk_free_sim = self._cir_sim(n_sim=n_sim, n_days=n_days, deltas_W=W_t_corr[:, 1], **self.risk_free_params)
-
-        return key_rate_sim, risk_free_sim
+        data = self.data[risk_factor]
+        model_params = OPT_PARAMS[risk_factor]
+        model_params['r_0'] = self.data.loc[self._current_date_str, risk_factor],
+        simulations = self._cir_sim(n_sim=n_sim, n_days=n_days, **model_params)
+        return simulations
 
     def simulate_all(self, n_days: int = 1, n_sim: int = 1_000) -> dict[str, np.array]:
         """
         Simulate all risk factors
         """
-        key_rate_sim, risk_free_sim = self.simulate_rates(n_days, n_sim)
         return {
-            'cbr_key_rate': key_rate_sim,
-            'risk_free_rate': risk_free_sim,
+            'cbr_key_rate': self.simulate_rates('cbr_key_rate', n_days, n_sim),
+            'year_1': self.simulate_rates('year_1', n_days, n_sim),
+            'year_3': self.simulate_rates('year_3', n_days, n_sim),
+            'year_5': self.simulate_rates('year_5', n_days, n_sim),
+            'year_10': self.simulate_rates('year_10', n_days, n_sim),
+            'year_15': self.simulate_rates('year_15', n_days, n_sim),
+            'year_20': self.simulate_rates('year_20', n_days, n_sim),
         }
 
     def predict_prices(self, n_days: int = 1, n_sim: int = 1000) -> list[PricesDict]:
