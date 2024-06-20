@@ -3,7 +3,6 @@ Utils for portfolio risk management
 """
 
 import numpy as np
-import statsmodels.api as sm
 
 OPT_PARAMS = {
     'cbr_key_rate': {'a': 0.01, 'b': 8.03, 'sigma': 0.09},
@@ -45,28 +44,28 @@ def calc_es(dist: np.array, level: float) -> float:
     return dist[dist <= var].mean()
 
 
-factor_final ={
-    'gazp': ['su26224_days_before_coupon', 'aluminum', 'brent', 'moex_index',
-        'nickel', 'rtsi'],
- 'gmkn': ['su26222_days_before_coupon', 'aluminum', 'moex_index', 'rtsi'],
- 'lkoh': ['lkoh', 'ecb_rate', 'aluminum', 'cbr_key_rate', 'eur_rub', 'moex_index',
-        'rtsi', 'pca_cbd'],
- 'magn': ['aluminum', 'eur_rub', 'moex_index', 'rtsi'],
- 'mgnt': ['su26222_days_before_coupon', 'su26221_days_before_coupon',
-        'su26218_days_before_coupon', 'ecb_rate', 'aluminum', 'brent',
-        'cbr_key_rate', 'eur_rub', 'moex_index', 'nickel', 'rtsi', 'pca_cbd'],
- 'moex': ['ecb_rate', 'eur_rub', 'moex_index', 'rtsi'],
- 'rosn': ['su26222_days_before_coupon', 'su26218_days_before_coupon',
-        'ecb_rate', 'aluminum', 'brent', 'cbr_key_rate', 'eur_rub',
-        'moex_index', 'rtsi', 'pca_cbd'],
- 'rual': ['su26218_days_before_coupon', 'aluminum', 'brent',
-        'cbr_key_rate', 'moex_index', 'nickel', 'rtsi', 'pca_cbd'],
- 'sber': ['eur_rub', 'moex_index', 'rtsi'],
- 'vtbr': ['moex_index', 'rtsi'],
- 'su26218': ['su26224_days_before_coupon', 'moex_index', 'rtsi'],
- 'su26221': ['su26224_days_before_coupon', 'moex_index', 'rtsi'],
- 'su26222': ['su26224_days_before_coupon', 'su26222_days_before_coupon',
-        'moex_index', 'rtsi'],
- 'su26224': [ 'su26224_days_before_coupon', 'moex_index', 'rtsi'],
- 'su26230': [ 'su26224_days_before_coupon', 'moex_index', 'rtsi']
- }
+factor_final = {
+    'GAZP': ['su26224_days_before_coupon', 'aluminum', 'brent', 'moex_index',
+             'nickel', 'rtsi'],
+    'GMKN': ['su26222_days_before_coupon', 'aluminum', 'moex_index', 'rtsi'],
+    'LKOH': ['ecb_rate', 'aluminum', 'cbr_key_rate', 'eur_rub', 'moex_index',
+             'rtsi', 'pca_cbd'],
+    'MAGN': ['aluminum', 'eur_rub', 'moex_index', 'rtsi'],
+    'MGNT': ['su26222_days_before_coupon', 'su26221_days_before_coupon',
+             'su26218_days_before_coupon', 'ecb_rate', 'aluminum', 'brent',
+             'cbr_key_rate', 'eur_rub', 'moex_index', 'nickel', 'rtsi', 'pca_cbd'],
+    'MOEX': ['ecb_rate', 'eur_rub', 'moex_index', 'rtsi'],
+    'ROSN': ['su26222_days_before_coupon', 'su26218_days_before_coupon',
+             'ecb_rate', 'aluminum', 'brent', 'cbr_key_rate', 'eur_rub',
+             'moex_index', 'rtsi', 'pca_cbd'],
+    'RUAL': ['su26218_days_before_coupon', 'aluminum', 'brent',
+             'cbr_key_rate', 'moex_index', 'nickel', 'rtsi', 'pca_cbd'],
+    'SBER': ['eur_rub', 'moex_index', 'rtsi'],
+    'VTBR': ['moex_index', 'rtsi'],
+    'SU26218RMFS6': ['su26224_days_before_coupon', 'moex_index', 'rtsi'],
+    'SU26221RMFS0': ['su26224_days_before_coupon', 'moex_index', 'rtsi'],
+    'SU26222RMFS8': ['su26224_days_before_coupon', 'su26222_days_before_coupon',
+                     'moex_index', 'rtsi'],
+    'SU26224RMFS4': ['su26224_days_before_coupon', 'moex_index', 'rtsi'],
+    'SU26230RMFS1': ['su26224_days_before_coupon', 'moex_index', 'rtsi']
+}
