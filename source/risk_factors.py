@@ -77,6 +77,33 @@ class RiskFactors:
             result = np.hstack([result, r_t_i])
         return result
 
+    def _log_sim(self, x_0, r_f, r_d, sigma, n_days, n_sim, deltas_W=None) -> np.array:
+        """
+        x_0 - float
+        r_f - np.array[n_sim x (n_days + 1)]
+        r_d - np.array[n_sim x (n_days + 1)]
+        sigma - float
+        n_sim - int
+
+        result - np.array[n_sim x (n_days + 1)]
+        """
+        result = np.array([x_0] * n_sim).reshape(-1, 1)
+        for i in range(1, n_days + 1):
+            x_prev = result[:, -1].reshape(-1, 1)
+            delta_t = 1
+
+            if deltas_W is None:
+                delta_W = np.random.normal(loc=0, scale=np.sqrt(delta_t), size=(n_sim, 1))
+            else:
+                delta_W = deltas_W[:, i - 1].reshape(-1, 1)
+
+            r_d_i = r_d[:, i - 1].reshape(-1, 1)
+            r_f_i = r_f[:, i - 1].reshape(-1, 1)
+
+            x_t_i = x_prev + x_prev * (r_f_i - r_d_i) * delta_t + sigma * x_prev * delta_W
+            result = np.hstack([result, x_t_i])
+        return result
+
     def simulate_rates(self, risk_factor: str, n_days: int = 1, n_sim: int = 1_000) -> np.array:
         """
         Rates simulation for n_days forward
@@ -86,6 +113,15 @@ class RiskFactors:
         simulations = self._cir_sim(n_sim=n_sim, n_days=n_days, **model_params)
         return simulations
 
+    def simulate_fx(self, risk_factor: str, n_days: int = 1, n_sim: int = 1_000) -> np.array:
+        """
+        FX simulation for n_days forward
+        """
+        model_params = OPT_PARAMS[risk_factor]
+        model_params['x_0'] = self.data.loc[self._current_date_str, risk_factor],
+        simulations = self._log_sim(n_sim=n_sim, n_days=n_days, **model_params)
+        return simulations
+
     def simulate_all(self, n_days: int = 1, n_sim: int = 1_000) -> dict[str, np.array]:
         """
         Simulate all risk factors
@@ -93,6 +129,8 @@ class RiskFactors:
         return {
             'cbr_key_rate': self.simulate_rates('cbr_key_rate', n_days, n_sim),
             'pca_cbd': self.simulate_rates('pca_cbd', n_days, n_sim),
+            'usd_rub': self.simulate_fx('usd_rub', n_days, n_sim),
+            'eur_rub': self.simulate_fx('eur_rub', n_days, n_sim),
         }
 
     def predict_prices(self, n_days: int = 1, n_sim: int = 1000) -> list[PricesDict]:

@@ -7,6 +7,8 @@ import numpy as np
 OPT_PARAMS = {
     'cbr_key_rate': {'a': 0.01, 'b': 7.78, 'sigma': 0.09},
     'pca_cbd': {'a': 0.01, 'b': -0.03, 'sigma': 0.14},
+    'usd_rub': {'sigma': 4.351965526837073},
+    'eur_rub': {'sigma': 4.351965526837073},
 }
 
 
