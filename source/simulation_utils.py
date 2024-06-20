@@ -9,6 +9,7 @@ import statsmodels.api as sm
 import scipy.stats as sps
 from itertools import product
 import warnings
+from statsmodels.tsa.stattools import adfuller, acf, pacf
 
 
 def calc_var(dist: np.array, level: float) -> float:
@@ -27,12 +28,9 @@ def calc_es(dist: np.array, level: float) -> float:
 
 
 def calculate_posterior_cov(
-    factor_list: list=['factor_1', 'factor_2'],
-    prior_cov: pd.DataFrame=pd.DataFrame(
-        {'factor_1': [1, 1.1], 'factor_2': [1.1, 2]},
-        index=['factor_1', 'factor_2']
-    ),
-    est_var=[1.1, 3],
+    factor_list: list,
+    prior_cov: pd.DataFrame,
+    est_var=list,
 ):
     """
     склеиваем оценки дисперсий факторов и их ковариации
@@ -54,13 +52,10 @@ def calculate_posterior_cov(
 
 
 def sample_multivariate_normal(
-    factor_list: list=['factor_1', 'factor_2'],
-    prior_cov: pd.DataFrame=pd.DataFrame(
-        {'factor_1': [1, 1.1], 'factor_2': [1.1, 2]},
-        index=['factor_1', 'factor_2']
-    ),
-    est_var=[1.1, 3],
-    est_mean: list=[10, 15],
+    factor_list: list,
+    prior_cov: pd.DataFrame,
+    est_var: list,
+    est_mean: list,
     size=100,
     return_array=True,
 ):
@@ -157,7 +152,7 @@ def simulated_series_selection(
 
 
 def find_last_acf_sign_lag(ts, drop_first = True):
-    acf, ci = sm.tsa.acf(ts, alpha=0.01)
+    _, ci = sm.tsa.acf(ts, alpha=0.01)
     first_zero, second_zero = 0, 0
     for l in range(1, len(ci)):
         if (0 >= ci[l][0] and 0 <= ci[l][1]):
@@ -169,7 +164,7 @@ def find_last_acf_sign_lag(ts, drop_first = True):
     return first_zero
     
 def find_last_pacf_sign_lag(ts, drop_first = True):
-    acf, ci = sm.tsa.pacf(ts, alpha=0.01)
+    _, ci = sm.tsa.pacf(ts, alpha=0.01)
     first_zero, second_zero = 0, 0
     for l in range(1, len(ci)):
         if (0 >= ci[l][0] and 0 <= ci[l][1]):
@@ -192,8 +187,8 @@ def fit_best_sarima_model(
     Qs = None,
 ):
     max_params = [
-        find_last_acf_sign_lag(series.diff().dropna()),
         find_last_pacf_sign_lag(series.diff().dropna()), 
+        find_last_acf_sign_lag(series.diff().dropna()),
     1, 1]
     
     # print(max_params)
