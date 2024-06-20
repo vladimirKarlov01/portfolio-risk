@@ -81,7 +81,6 @@ class RiskFactors:
         """
         Rates simulation for n_days forward
         """
-        data = self.data[risk_factor]
         model_params = OPT_PARAMS[risk_factor]
         model_params['r_0'] = self.data.loc[self._current_date_str, risk_factor],
         simulations = self._cir_sim(n_sim=n_sim, n_days=n_days, **model_params)
@@ -93,12 +92,7 @@ class RiskFactors:
         """
         return {
             'cbr_key_rate': self.simulate_rates('cbr_key_rate', n_days, n_sim),
-            'year_1': self.simulate_rates('year_1', n_days, n_sim),
-            'year_3': self.simulate_rates('year_3', n_days, n_sim),
-            'year_5': self.simulate_rates('year_5', n_days, n_sim),
-            'year_10': self.simulate_rates('year_10', n_days, n_sim),
-            'year_15': self.simulate_rates('year_15', n_days, n_sim),
-            'year_20': self.simulate_rates('year_20', n_days, n_sim),
+            'pca_cbd': self.simulate_rates('pca_cbd', n_days, n_sim),
         }
 
     def predict_prices(self, n_days: int = 1, n_sim: int = 1000) -> list[PricesDict]:
@@ -106,9 +100,8 @@ class RiskFactors:
         Predict instruments price based on risk factors for n_days horizon
         Return list of n_sim simulations, each of which with M instruments price predictions
         """
-        _ = self
-        _ = n_days
-        # todo: risk factors simulations
+        simulations_dict = self.simulate_all(n_days, n_sim)
+        # todo: predict instruments prices based on risk factors
         return [
             {
                 'SU26218RMFS6': round(random.uniform(100, 1500), 2),

@@ -5,13 +5,8 @@ Utils for portfolio risk management
 import numpy as np
 
 OPT_PARAMS = {
-    'year_1': {'a': 0.01, 'b': 7.73, 'sigma': 0.07},
-    'year_3': {'a': 0.01, 'b': 8.2, 'sigma': 0.06},
-    'year_5': {'a': 0.01, 'b': 7.99, 'sigma': 0.06},
-    'year_10': {'a': 0.01, 'b': 8.75, 'sigma': 0.06},
-    'year_15': {'a': 0.01, 'b': 9.04, 'sigma': 0.05},
-    'year_20': {'a': 0.01, 'b': 9.46, 'sigma': 0.05},
-    'cbr_key_rate': {'a': 0.01, 'b': 8.06, 'sigma': 0.09},
+    'cbr_key_rate': {'a': 0.01, 'b': 7.78, 'sigma': 0.09},
+    'pca_cbd': {'a': 0.01, 'b': -0.03, 'sigma': 0.14},
 }
 
 
