@@ -184,7 +184,6 @@ class RiskFactors:
             plt.plot(sim)
 
         target = self.data.loc[self._current_date_str:, risk_factor].iloc[:simulations.shape[1]]
-        print(target)
         plt.plot(target, color='black', label='target')
 
         plt.gcf().autofmt_xdate()
