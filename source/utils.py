@@ -120,7 +120,7 @@ def sarima_fit(curr_date, dataframe, column):
     result_table = pd.DataFrame(results)
     result_table.columns = ['parameters', 'aic']
     # print(result_table.sort_values(by = 'aic', ascending=True).head())
-    return result_table.sort_values(by='aic', ascending=True).reset_index().head(), best_model_sm.get_prediction(0,
+    return result_table.sort_values(by='aic', ascending=True).reset_).head(), best_model_sm.get_prediction(0,
                                                                                                                  len(dataframe) + 10).predicted_mean
 
 
@@ -177,3 +177,30 @@ def select_risk_factors(factor, risk_factors_list, top_factors=4):
     drop_list_names = list(risk_factors[risk_factors.columns[drop_list_idx]].columns)
     print(drop_list_names)
     return all_data[[factor] + risk_factors_list].drop(drop_list_names, axis=1)
+
+
+factor_final ={
+    'gazp': ['gazp', 'su26224_days_before_coupon', 'aluminum', 'brent', 'moex_index',
+        'nickel', 'rtsi'],
+ 'gmkn': ['gmkn', 'su26222_days_before_coupon', 'aluminum', 'moex_index', 'rtsi'],
+ 'lkoh': ['lkoh', 'ecb_rate', 'aluminum', 'cbr_key_rate', 'eur_rub', 'moex_index',
+        'rtsi', 'pca_cbd'],
+ 'magn': ['magn', 'aluminum', 'eur_rub', 'moex_index', 'rtsi'],
+ 'mgnt': ['mgnt', 'su26222_days_before_coupon', 'su26221_days_before_coupon',
+        'su26218_days_before_coupon', 'ecb_rate', 'aluminum', 'brent',
+        'cbr_key_rate', 'eur_rub', 'moex_index', 'nickel', 'rtsi', 'pca_cbd'],
+ 'moex': ['moex', 'ecb_rate', 'eur_rub', 'moex_index', 'rtsi'],
+ 'rosn': ['rosn', 'su26222_days_before_coupon', 'su26218_days_before_coupon',
+        'ecb_rate', 'aluminum', 'brent', 'cbr_key_rate', 'eur_rub',
+        'moex_index', 'rtsi', 'pca_cbd'],
+ 'rual': ['rual', 'su26218_days_before_coupon', 'aluminum', 'brent',
+        'cbr_key_rate', 'moex_index', 'nickel', 'rtsi', 'pca_cbd'],
+ 'sber': ['sber', 'eur_rub', 'moex_index', 'rtsi'],
+ 'vtbr': ['vtbr', 'moex_index', 'rtsi'],
+ 'su26218': ['su26218', 'su26224_days_before_coupon', 'moex_index', 'rtsi'],
+ 'su26221': ['su26221', 'su26224_days_before_coupon', 'moex_index', 'rtsi'],
+ 'su26222': ['su26222', 'su26224_days_before_coupon', 'su26222_days_before_coupon',
+        'moex_index', 'rtsi'],
+ 'su26224': ['su26224', 'su26224_days_before_coupon', 'moex_index', 'rtsi'],
+ 'su26230': ['su26230', 'su26224_days_before_coupon', 'moex_index', 'rtsi']
+ }
