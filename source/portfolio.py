@@ -58,7 +58,7 @@ class Portfolio:
             'fx': {ticker: 0 for ticker in self.fx},
         }
 
-        self.risk_factors = RiskFactors()
+        self.risk_factors = RiskFactors(current_date=self._current_date)
 
     @staticmethod
     def load_prices() -> pd.DataFrame:
@@ -76,7 +76,9 @@ class Portfolio:
         """
         Move current date to n_days forward
         """
-        self._current_date += pd.Timedelta(days=n_days)
+        delta = pd.Timedelta(days=n_days)
+        self._current_date += delta
+        self.risk_factors._current_date += delta
 
     def get_last_price(self, ticker: str) -> float:
         """
