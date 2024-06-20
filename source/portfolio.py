@@ -118,7 +118,7 @@ class Portfolio:
         Calculate fair value of portfolio based on predicted prices
         """
         return sum(
-            fair_prices[ticker] * quantity
+            fair_prices[ticker] if ticker not in ('USD_RUB', 'EUR_RUB') else self.get_last_price(ticker) * quantity
             for instr_type, instruments in self.all_instruments.items()
             for ticker, quantity in instruments.items()
         )

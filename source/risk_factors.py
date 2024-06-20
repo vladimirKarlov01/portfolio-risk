@@ -2,7 +2,6 @@
 RiskFactors class
 """
 
-import random
 import warnings
 from itertools import product
 
@@ -14,7 +13,7 @@ import statsmodels.api as sm
 from sklearn.linear_model import Lasso
 
 from data import DATA_PATH
-from source.utils import OPT_PARAMS, factor_final
+from source.utils import OPT_PARAMS, factor_final, factors_to_tickers_mapping
 
 # from statsmodels.tsa.stattools import adfuller, acf, pacf
 
@@ -188,7 +187,7 @@ class RiskFactors:
 
     def _fit_regression(self, ticker: str):
         X = self.data.loc[:self._current_date_str, factor_final[ticker]]
-        y = self.data[ticker]
+        y = self.data.loc[:self._current_date_str, ticker]
         lr = Lasso().fit(X, y)
         return lr
 
@@ -310,15 +309,15 @@ class RiskFactors:
         Simulate all risk factors
         """
         arima_factors = ['su26224_days_before_coupon',
-                        'nickel',
-                        'aluminum',
-                        'brent',
-                        'moex',
-                        'moex_index',
-                        'su26222_days_before_coupon',
-                        'su26218_days_before_coupon',
-                        'su26221_days_before_coupon',
-                        'rtsi']
+                         'nickel',
+                         'aluminum',
+                         'brent',
+                         'moex',
+                         'moex_index',
+                         'su26222_days_before_coupon',
+                         'su26218_days_before_coupon',
+                         'su26221_days_before_coupon',
+                         'rtsi']
 
         arimas = ArimaFactors(
             self._current_date,
@@ -330,20 +329,22 @@ class RiskFactors:
         return_dict = {
             'cbr_key_rate': self.simulate_rates(risk_factor='cbr_key_rate', n_days=n_days, n_sim=n_sim),
             'pca_cbd': self.simulate_rates(risk_factor='pca_cbd', n_days=n_days, n_sim=n_sim),
-            # 'usd_rub': self.simulate_fx(
-            #     risk_factor='usd_rub',
-            #     domestic_rates='cbr_key_rate',
-            #     foreign_rates='sofr',
-            #     n_days=n_days,
-            #     n_sim=n_sim,
-            # ),
-            # 'eur_rub': self.simulate_fx(
-            #     risk_factor='eur_rub',
-            #     domestic_rates='cbr_key_rate',
-            #     foreign_rates='ecb_rate',
-            #     n_days=n_days,
-            #     n_sim=n_sim,
-            # ),
+            'usd_rub': self.simulate_fx(
+                risk_factor='usd_rub',
+                domestic_rates='cbr_key_rate',
+                foreign_rates='sofr',
+                n_days=n_days,
+                n_sim=n_sim,
+            ),
+            'eur_rub': self.simulate_fx(
+                risk_factor='eur_rub',
+                domestic_rates='cbr_key_rate',
+                foreign_rates='ecb_rate',
+                n_days=n_days,
+                n_sim=n_sim,
+            ),
+            'ecb_rate': self.simulate_rates(risk_factor='ecb_rate', n_days=n_days, n_sim=n_sim),
+            'sofr': self.simulate_rates(risk_factor='sofr', n_days=n_days, n_sim=n_sim),
         }
 
         semi_dict = {}
@@ -359,7 +360,6 @@ class RiskFactors:
             return_dict[name] = np.array(array)
 
         return return_dict
-
 
     def predict_prices_for_ticker(self, ticker: str, risk_factors: pd.DataFrame) -> pd.Series:
         """
@@ -378,38 +378,19 @@ class RiskFactors:
         simulations_dict = self.simulate_all(n_days, n_sim)
         prices = pd.DataFrame.from_dict(
             {
-                ticker: self.predict_prices_for_ticker(
-                    ticker=ticker,
+                factors_to_tickers_mapping[instrument_name]: self.predict_prices_for_ticker(
+                    ticker=instrument_name,
                     risk_factors=pd.DataFrame.from_dict(
                         {
-                            factor_name: simulations_dict[factor_name][:, -1:]
-                            for factor_name in factor_final[ticker]
+                            factor_name: simulations_dict[factor_name][:, -1:].flatten()
+                            for factor_name in factor_final[instrument_name]
                         }
                     ),
                 )
-                for ticker in self.all_tickers
+                for instrument_name in factor_final
             }
         )
-        print(prices)
         return [
-            {
-                'SU26218RMFS6': round(random.uniform(100, 1500), 2),
-                'SU26221RMFS0': round(random.uniform(100, 1500), 2),
-                'SU26222RMFS8': round(random.uniform(100, 1500), 2),
-                'SU26224RMFS4': round(random.uniform(100, 1500), 2),
-                'SU26230RMFS1': round(random.uniform(100, 1500), 2),
-                'GAZP': round(random.uniform(10, 10000), 2),
-                'GMKN': round(random.uniform(10, 10000), 2),
-                'LKOH': round(random.uniform(10, 10000), 2),
-                'MAGN': round(random.uniform(10, 10000), 2),
-                'MGNT': round(random.uniform(10, 10000), 2),
-                'MOEX': round(random.uniform(10, 10000), 2),
-                'ROSN': round(random.uniform(10, 10000), 2),
-                'RUAL': round(random.uniform(10, 10000), 2),
-                'SBER': round(random.uniform(10, 10000), 2),
-                'VTBR': round(random.uniform(10, 10000), 2),
-                'USD_RUB': round(random.uniform(80, 110), 2),
-                'EUR_RUB': round(random.uniform(90, 120), 2),
-            }
-            for _ in range(n_sim)
+            row.to_dict()
+            for _, row in prices.iterrows()
         ]
