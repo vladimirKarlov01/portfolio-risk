@@ -230,7 +230,7 @@ class RiskFactors:
             r_t_i = r_prev + a * (b - r_prev) * delta_t + sigma * np.sqrt(r_prev) * delta_W
             r_t_i = np.clip(r_t_i, 0, 100000000)
             result = np.hstack([result, r_t_i])
-        return result
+        return result[:, 1:]
 
     def _log_sim(self, x_0, r_f, r_d, sigma, n_days, n_sim, deltas_W=None) -> np.array:
         """
@@ -309,24 +309,57 @@ class RiskFactors:
         """
         Simulate all risk factors
         """
-        return {
+        arima_factors = ['su26224_days_before_coupon',
+                        'nickel',
+                        'aluminum',
+                        'brent',
+                        'moex',
+                        'moex_index',
+                        'su26222_days_before_coupon',
+                        'su26218_days_before_coupon',
+                        'su26221_days_before_coupon',
+                        'rtsi']
+
+        arimas = ArimaFactors(
+            self._current_date,
+            self.data.loc[self._current_date_str:, arima_factors]
+        )
+
+        arimas.fit()
+
+        return_dict = {
             'cbr_key_rate': self.simulate_rates(risk_factor='cbr_key_rate', n_days=n_days, n_sim=n_sim),
             'pca_cbd': self.simulate_rates(risk_factor='pca_cbd', n_days=n_days, n_sim=n_sim),
-            'usd_rub': self.simulate_fx(
-                risk_factor='usd_rub',
-                domestic_rates='cbr_key_rate',
-                foreign_rates='sofr',
-                n_days=n_days,
-                n_sim=n_sim,
-            ),
-            'eur_rub': self.simulate_fx(
-                risk_factor='eur_rub',
-                domestic_rates='cbr_key_rate',
-                foreign_rates='ecb_rate',
-                n_days=n_days,
-                n_sim=n_sim,
-            ),
+            # 'usd_rub': self.simulate_fx(
+            #     risk_factor='usd_rub',
+            #     domestic_rates='cbr_key_rate',
+            #     foreign_rates='sofr',
+            #     n_days=n_days,
+            #     n_sim=n_sim,
+            # ),
+            # 'eur_rub': self.simulate_fx(
+            #     risk_factor='eur_rub',
+            #     domestic_rates='cbr_key_rate',
+            #     foreign_rates='ecb_rate',
+            #     n_days=n_days,
+            #     n_sim=n_sim,
+            # ),
         }
+
+        semi_dict = {}
+        for name in arima_factors:
+            semi_dict[name] = []
+
+        for _ in range(n_sim):
+            arimas_sim = arimas.simulate(n_days, arima_factors)
+            for name, sim in zip(arima_factors, arimas_sim):
+                semi_dict[name].append(sim)
+
+        for name, array in semi_dict.items():
+            return_dict[name] = np.array(array)
+
+        return return_dict
+
 
     def predict_prices_for_ticker(self, ticker: str, risk_factors: pd.DataFrame) -> pd.Series:
         """
