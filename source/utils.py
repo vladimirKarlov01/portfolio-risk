@@ -3,12 +3,13 @@ Utils for portfolio risk management
 """
 
 import numpy as np
-from statsmodels.tsa.stattools import adfuller
 import statsmodels.api as sm
 
 OPT_PARAMS = {
-    'cbr_key_rate': {'a': 0.01, 'b': 7.78, 'sigma': 0.09},
+    'cbr_key_rate': {'a': 0.01, 'b': 8.03, 'sigma': 0.09},
     'pca_cbd': {'a': 0.01, 'b': -0.03, 'sigma': 0.14},
+    'sofr': {'a': 0.01, 'b': 1.69, 'sigma': 0.06},
+    'ecb_rate': {'a': 0.01, 'b': 1.34, 'sigma': 0.04},
     'usd_rub': {'sigma': 4.351965526837073},
     'eur_rub': {'sigma': 4.673321811786814},
 }
@@ -95,19 +96,19 @@ def sarima_fit(curr_date, dataframe, column):
     import statsmodels.api as sm
 
     for param in tqdm(parameters_list, desc="Fitting SARIMA"):
-        #try except нужен, потому что на некоторых наборах параметров модель не обучается
+        # try except нужен, потому что на некоторых наборах параметров модель не обучается
         try:
 
             model_sm = sm.tsa.statespace.SARIMAX(dataframe[column], order=(param[0], d, param[1]),
                                                  seasonal_order=(param[2], D, param[3], 12)).fit(disp=-1)
 
-        #выводим параметры, на которых модель не обучается и переходим к следующему набору
+        # выводим параметры, на которых модель не обучается и переходим к следующему набору
         except ValueError:
             print('wrong parameters:', param)
             continue
         aic = model_sm.aic
 
-        #сохраняем лучшую модель, aic, параметры
+        # сохраняем лучшую модель, aic, параметры
         if aic < best_aic:
             best_model = model_sm
             best_aic = aic
@@ -144,17 +145,17 @@ def select_risk_factors(factor, risk_factors_list, top_factors=4):
     risk_factors = all_data[risk_factors_list]
     drop_list_idx = []
     corr_list = []
-    #считаем обычную корреляцию с таргетом
+    # считаем обычную корреляцию с таргетом
     for i in range(len(risk_factors.columns)):
         corr_with_target = np.corrcoef(x=risk_factors[risk_factors_list[i]].values, y=target)[0][1]
         corr_list.append(corr_with_target)
-        if corr_with_target < 0.05:  #дропаем, если меньше 0.05
+        if corr_with_target < 0.05:  # дропаем, если меньше 0.05
             drop_list_idx.append(i)
 
-    #ранжируем фичи по MI с таргетом
+    # ранжируем фичи по MI с таргетом
     top_mutual_information_list = calc_mutual_info(target, risk_factors)
 
-    #смотрим взаимную корреляцию фичей
+    # смотрим взаимную корреляцию фичей
     mutual_correlation = np.corrcoef(x=risk_factors, rowvar=False)
     a = np.where(mutual_correlation >= 0.9)[0]
     b = np.where(mutual_correlation >= 0.9)[1]
@@ -162,14 +163,14 @@ def select_risk_factors(factor, risk_factors_list, top_factors=4):
     for i in range(len(a)):
         if a[i] != b[i]:
             correlated_features.append(tuple(sorted([a[i], b[i]])))
-    correlated_features = set(correlated_features)  #тут сет пар индексов скоррелированных фичей
+    correlated_features = set(correlated_features)  # тут сет пар индексов скоррелированных фичей
 
-    for pair in correlated_features:  #смотрим, какая из фичей из пары на каком месте в ранжированном списке MI
+    for pair in correlated_features:  # смотрим, какая из фичей из пары на каком месте в ранжированном списке MI
         mi_1 = np.where(np.array(top_mutual_information_list) == risk_factors.columns[pair[0]])
         mi_2 = np.where(np.array(top_mutual_information_list) == risk_factors.columns[pair[1]])
 
-        if mi_1 > mi_2:  #если первый признак из пары менее связан с таргетом (дальше от начала списка MI)
-            drop_list_idx.append(pair[0])  #дропаем первый признак
+        if mi_1 > mi_2:  # если первый признак из пары менее связан с таргетом (дальше от начала списка MI)
+            drop_list_idx.append(pair[0])  # дропаем первый признак
         else:
             drop_list_idx.append(pair[1])
 

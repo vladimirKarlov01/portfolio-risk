@@ -39,7 +39,7 @@ class RiskFactors:
 
     def plot_simulations(
         self,
-        simulations: dict[str, np.array],
+        simulations: np.array,
         risk_factor: str,
     ):
         plt.figure(figsize=(10, 5))
@@ -48,10 +48,11 @@ class RiskFactors:
         plt.xlabel('Days')
         plt.ylabel('Value')
 
-        for sim in simulations[risk_factor]:
+        for sim in simulations:
             plt.plot(sim)
 
-        target = self.data.loc[self._current_date_str:, risk_factor].iloc[:simulations[risk_factor].shape[1]]
+        target = self.data.loc[self._current_date_str:, risk_factor].iloc[:simulations.shape[1]]
+        print(target)
         plt.plot(target, color='black', label='target')
 
         plt.gcf().autofmt_xdate()
@@ -90,7 +91,7 @@ class RiskFactors:
         result = np.array([x_0] * n_sim).reshape(-1, 1)
         for i in range(1, n_days + 1):
             x_prev = result[:, -1].reshape(-1, 1)
-            delta_t = 1
+            delta_t = 1 / 365
 
             if deltas_W is None:
                 delta_W = np.random.normal(loc=0, scale=np.sqrt(delta_t), size=(n_sim, 1))
@@ -113,13 +114,41 @@ class RiskFactors:
         simulations = self._cir_sim(n_sim=n_sim, n_days=n_days, **model_params)
         return simulations
 
-    def simulate_fx(self, risk_factor: str, n_days: int = 1, n_sim: int = 1_000) -> np.array:
+    def simulate_fx(
+        self,
+        risk_factor: str,
+        domestic_rates: str,
+        foreign_rates: str,
+        n_days: int = 1,
+        n_sim: int = 1_000,
+    ) -> np.array:
         """
         FX simulation for n_days forward
         """
+        COV_MATRIX = self.data[[foreign_rates, domestic_rates, risk_factor]].cov()
+        L = np.linalg.cholesky(COV_MATRIX)
+        W_t = np.random.randn(n_sim, 3, n_days)
+        W_t_corr = L @ W_t
+
+        r_f_params = OPT_PARAMS[foreign_rates]
+        r_f_params['r_0'] = self.data.loc[self._current_date_str, foreign_rates]
+        r_f = self._cir_sim(n_sim=n_sim, n_days=n_days, deltas_W=W_t_corr[:, 0], **r_f_params)
+
+        r_d_params = OPT_PARAMS[domestic_rates]
+        r_d_params['r_0'] = self.data.loc[self._current_date_str, domestic_rates]
+        r_d = self._cir_sim(n_sim=n_sim, n_days=n_days, deltas_W=W_t_corr[:, 1], **r_d_params)
+
         model_params = OPT_PARAMS[risk_factor]
-        model_params['x_0'] = self.data.loc[self._current_date_str, risk_factor],
-        simulations = self._log_sim(n_sim=n_sim, n_days=n_days, **model_params)
+        model_params['x_0'] = self.data.loc[self._current_date_str, risk_factor]
+        simulations = self._log_sim(
+            n_sim=n_sim,
+            n_days=n_days,
+            r_f=r_f,
+            r_d=r_d,
+            deltas_W=W_t_corr[:, 2],
+            **model_params,
+        )
+
         return simulations
 
     def simulate_all(self, n_days: int = 1, n_sim: int = 1_000) -> dict[str, np.array]:
@@ -127,10 +156,22 @@ class RiskFactors:
         Simulate all risk factors
         """
         return {
-            'cbr_key_rate': self.simulate_rates('cbr_key_rate', n_days, n_sim),
-            'pca_cbd': self.simulate_rates('pca_cbd', n_days, n_sim),
-            'usd_rub': self.simulate_fx('usd_rub', n_days, n_sim),
-            'eur_rub': self.simulate_fx('eur_rub', n_days, n_sim),
+            'cbr_key_rate': self.simulate_rates(risk_factor='cbr_key_rate', n_days=n_days, n_sim=n_sim),
+            'pca_cbd': self.simulate_rates(risk_factor='pca_cbd', n_days=n_days, n_sim=n_sim),
+            'usd_rub': self.simulate_fx(
+                risk_factor='usd_rub',
+                domestic_rates='cbr_key_rate',
+                foreign_rates='sofr',
+                n_days=n_days,
+                n_sim=n_sim,
+            ),
+            'eur_rub': self.simulate_fx(
+                risk_factor='eur_rub',
+                domestic_rates='cbr_key_rate',
+                foreign_rates='ecb_rate',
+                n_days=n_days,
+                n_sim=n_sim,
+            ),
         }
 
     def predict_prices(self, n_days: int = 1, n_sim: int = 1000) -> list[PricesDict]:
