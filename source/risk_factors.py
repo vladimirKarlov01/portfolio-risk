@@ -3,16 +3,148 @@ RiskFactors class
 """
 
 import random
-
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import statsmodels.api as sm
+from itertools import product
+import warnings
+# from statsmodels.tsa.stattools import adfuller, acf, pacf
 
 from data import DATA_PATH
 from source.utils import OPT_PARAMS
 
 PricesDict = dict[str, float]
+
+class ArimaFactors:
+    """
+    SARIMA simulations util
+    """
+    def __init__(self,
+                current_date: pd.Timestamp,
+                data: pd.DataFrame,
+                seasonal=0,
+                ):
+        self._current_date = current_date
+        self.data = data
+        self.seasonal = seasonal
+        self.models = dict()
+        self.model_orders = dict()
+
+    def find_last_acf_sign_lag(self, ts, drop_first = True):
+        _, ci = sm.tsa.acf(ts, alpha=0.01)
+        first_zero, second_zero = 0, 0
+        for l in range(1, len(ci)):
+            if (0 >= ci[l][0] and 0 <= ci[l][1]):
+                if first_zero == 0:
+                    first_zero = l - 1
+                else: 
+                    second_zero = l - 1
+                    break
+        return first_zero
+    
+    def find_last_pacf_sign_lag(self, ts, drop_first = True):
+        _, ci = sm.tsa.pacf(ts, alpha=0.01)
+        first_zero, second_zero = 0, 0
+        for l in range(1, len(ci)):
+            if (0 >= ci[l][0] and 0 <= ci[l][1]):
+                if first_zero ==0:
+                    first_zero = l - 1
+                else: 
+                    second_zero = l - 1
+                    break
+        return first_zero
+
+    def fit_best_sarima_model(
+        self,
+        series: pd.Series, 
+        seasonal = 0,
+        ps = range(0, 3),
+        d = [1],
+        qs = range(0, 3),
+        Ps = None,
+        D= None,
+        Qs = None,
+    ):
+        max_params = [
+            self.find_last_pacf_sign_lag(series.diff().dropna()), 
+            self.find_last_acf_sign_lag(series.diff().dropna()),
+        1, 1]
+        
+        ps = range(0, max_params[0] + 1) if not ps else ps
+        d = [1] if not d else d
+        qs = range(0, max_params[1] + 1) if not qs else qs
+        Ps = range(0, max_params[2]) if not Ps else Ps
+        D = [1] if not D else D
+        Qs = range(0, max_params[3]) if not Qs else Qs
+        
+        grid = [ps, d, qs]
+
+        if seasonal:
+            grid += [Ps, D, Qs]
+        parameters_list = list(product(*grid))
+        results = []
+        best_aic = float("inf")
+        warnings.filterwarnings('ignore')
+        
+        for param in parameters_list:
+            #try except нужен, потому что на некоторых наборах параметров модель не обучается
+            order_list = (*param[:3],)
+            seasonal_list = (*param[3:7],) if seasonal else (0, 0, 0, 0)
+            
+            try:
+                model_sm = sm.tsa.SARIMAX(
+                    series,
+                    order=order_list, 
+                    seasonal_order=seasonal_list,
+                ).fit(disp=-1)
+                
+            #выводим параметры, на которых модель не обучается и переходим к следующему набору
+            except ValueError:
+                print('wrong parameters:', param)
+                continue
+            aic = model_sm.aic
+            
+            #сохраняем лучшую модель, aic, параметры
+            if aic < best_aic:
+                best_model = model_sm
+                best_aic = aic
+                best_param = param
+                
+            results.append([param, model_sm.aic])
+        
+        return best_model, best_param
+    
+    def fit(self):
+        for column in self.data.columns:
+            self.models[column], self.model_orders = \
+            self.fit_best_sarima_model(self.data[column])
+
+    def forecast(self,
+                 steps,
+                 factor_list=None,
+                 ):
+        
+        factor_list = self.data.columns
+
+        predicts = [self.models[factor].get_forecast(steps=steps) for factor in factor_list]
+ 
+        mean_series = [pred.predicted_mean.values for pred in predicts]
+        var_series = [pred.var_pred_mean.values for pred in predicts]
+
+        return mean_series, var_series
+    
+
+    def simulate(self, steps, factor_list=None):
+
+        ANCHOR = self.data.shape[0]
+        factor_list = self.data.columns if not factor_list else factor_list
+        return [
+            self.models[factor].simulate(
+                nsimulations=steps, anchor=ANCHOR
+            ).values for factor in factor_list
+        ]
 
 
 class RiskFactors:
