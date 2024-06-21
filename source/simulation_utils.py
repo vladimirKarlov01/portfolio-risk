@@ -5,64 +5,59 @@ Utils for portfolio risk management
 import numpy as np
 import pandas as pd
 from typing import List
-import statsmodels.api as sm
 import scipy.stats as sps
-from itertools import product
-import warnings
-from statsmodels.tsa.stattools import adfuller, acf, pacf
-
-
-def calc_var(dist: np.array, level: float) -> float:
-    """
-    Calculate VaR for level given in %
-    """
-    return np.percentile(dist, q=level)
-
-
-def calc_es(dist: np.array, level: float) -> float:
-    """
-    Calculate ES for level given in %
-    """
-    var = calc_var(dist, level)
-    return dist[dist <= var].mean()
+from itertools import combinations
 
 
 def calculate_posterior_cov(
     factor_list: list,
-    prior_cov: pd.DataFrame,
+    prior_corr: pd.DataFrame,
     est_var=list,
 ):
     """
-    склеиваем оценки дисперсий факторов и их ковариации
+    склеиваем оценки дисперсий факторов на прогнозе и их исторические ковариации
     """
-    assert list(prior_cov.columns)==list(prior_cov.index), 'unexpected corr matrix index'
+    assert list(prior_corr.columns)==list(prior_corr.index), 'unexpected corr matrix index'
 
+    pairs = combinations(factor_list, 2)
     LEN = len(factor_list)
 
     # создаем матрицу и добавляем оценки дисперсий факторов 
-    res_cov = np.zeros(shape=(LEN, LEN)) + np.diag(est_var)
+    cov_matrix_i = pd.DataFrame(
+        np.zeros((LEN, LEN)), 
+        columns=factor_list,
+        index=factor_list
+    )
 
-    # убираем лишнее и отсортировываем матрицу
-    prior_cov = prior_cov.loc[factor_list, factor_list].to_numpy()
+    cov_matrix_i += np.diag(est_var)
 
-    # оставляем только ковариации
-    only_cov = prior_cov - np.diag(np.diagonal(prior_cov))
+    # убираем лишнее и отсортировываем матрицу корреляций
+    prior_corr = prior_corr.loc[factor_list, factor_list]
 
-    return res_cov + only_cov
+    # получаем новую ковариацию = corr(x, y) * std_x_sim * std_y_std
+    
+    std_dict = {name: np.sqrt(var) for name, var in zip(factor_list, est_var)}
+
+    for i, j in pairs:
+        
+        cov_matrix_i[i][j] = prior_corr[i][j] * std_dict[i] * std_dict[j]
+        cov_matrix_i[j][i] = cov_matrix_i[i][j]
+
+    return cov_matrix_i
 
 
 def sample_multivariate_normal(
     factor_list: list,
-    prior_cov: pd.DataFrame,
+    prior_corr: pd.DataFrame,
     est_var: list,
     est_mean: list,
-    size=100,
-    return_array=True,
+    size: int=100,
+    return_array: bool=True,
 ):
     """
     В функцию подаем имена риск-факторов, средние и дисперсии в одном порядке!
     """
-    posterior_cov = calculate_posterior_cov(factor_list, prior_cov, est_var)
+    posterior_cov = calculate_posterior_cov(factor_list, prior_corr, est_var)
     
     sample = sps.multivariate_normal(
         mean=est_mean,
@@ -74,22 +69,22 @@ def sample_multivariate_normal(
 
 def calculate_simulation_probability(
     factor_list: list,
-    series_list: List[np.array],
-    prior_cov: pd.DataFrame,
-    est_var: List[np.array],
+    series_list: List[np.array], # list of trajectories
+    prior_corr: pd.DataFrame,
+    est_var: List[np.array], 
     est_mean: List[np.array],
     logging=False,
     logreturn=True,
 ):  
     """
     Returns smth similar to Log Likelihood s. t. Multivariate distribution
-    using models individual forecasts and historical covariances
+    using models' individual forecasts and historical covariances
     """
     
     assert len(factor_list) == len(series_list), 'check number of factors'
     assert len(set(len(array) for array in series_list)) == 1, 'check num of days in provided series'
 
-    prior_cov = prior_cov.loc[factor_list, factor_list]
+    prior_corr = prior_corr.loc[factor_list, factor_list]
     
     series_matrix = np.array(series_list).T
     est_var_matrix = np.array(est_var).T
@@ -102,7 +97,7 @@ def calculate_simulation_probability(
 
         posterior_cov = calculate_posterior_cov(
             factor_list,
-            prior_cov,
+            prior_corr,
             est_var_matrix[step, :]
         )
 
@@ -128,6 +123,9 @@ def simulated_series_selection(
     threshold=None,
     quantile=0.05,
 ):
+    """
+    Drops <quantile>% less likely simulations depending
+    """
     
     NUM_SIM = len(simulations)
     probs = [0] * NUM_SIM
@@ -149,91 +147,3 @@ def simulated_series_selection(
     for sim in range(NUM_SIM):
         if probs[sim] >= threshold:
             yield simulations[sim]
-
-
-def find_last_acf_sign_lag(ts, drop_first = True):
-    _, ci = sm.tsa.acf(ts, alpha=0.01)
-    first_zero, second_zero = 0, 0
-    for l in range(1, len(ci)):
-        if (0 >= ci[l][0] and 0 <= ci[l][1]):
-            if first_zero == 0:
-                first_zero = l - 1
-            else: 
-                second_zero = l - 1
-                break
-    return first_zero
-    
-def find_last_pacf_sign_lag(ts, drop_first = True):
-    _, ci = sm.tsa.pacf(ts, alpha=0.01)
-    first_zero, second_zero = 0, 0
-    for l in range(1, len(ci)):
-        if (0 >= ci[l][0] and 0 <= ci[l][1]):
-            if first_zero ==0:
-                first_zero = l - 1
-            else: 
-                second_zero = l - 1
-                break
-    return first_zero   
-
-
-def fit_best_sarima_model(
-    series: pd.Series, 
-    seasonal = 0,
-    ps = None,
-    d = None,
-    qs = None,
-    Ps = None,
-    D= None,
-    Qs = None,
-):
-    max_params = [
-        find_last_pacf_sign_lag(series.diff().dropna()), 
-        find_last_acf_sign_lag(series.diff().dropna()),
-    1, 1]
-    
-    # print(max_params)
-    ps = range(0, max_params[0] + 1) if not ps else ps
-    d = [1] if not d else d
-    qs = range(0, max_params[1] + 1) if not qs else qs
-    Ps = range(0, max_params[2]) if not Ps else Ps
-    D = [1] if not D else D
-    Qs = range(0, max_params[3]) if not Qs else Qs
-    
-    grid = [ps, d, qs]
-
-    if seasonal:
-        grid += [Ps, D, Qs]
-    
-    parameters_list = list(product(*grid))
-    results = []
-    best_aic = float("inf")
-    warnings.filterwarnings('ignore')
-
-    
-    for param in parameters_list:
-        #try except нужен, потому что на некоторых наборах параметров модель не обучается
-        order_list = (*param[:3],)
-        seasonal_list = (*param[3:7],) if seasonal else (0, 0, 0, 0)
-        
-        try:
-            model_sm = sm.tsa.SARIMAX(
-                series,
-                order=order_list, 
-                seasonal_order=seasonal_list,
-            ).fit(disp=-1)
-            
-        #выводим параметры, на которых модель не обучается и переходим к следующему набору
-        except ValueError:
-            print('wrong parameters:', param)
-            continue
-        aic = model_sm.aic
-        
-        #сохраняем лучшую модель, aic, параметры
-        if aic < best_aic:
-            best_model = model_sm
-            best_aic = aic
-            best_param = param
-            
-        results.append([param, model_sm.aic])
-    
-    return best_model, best_param  
